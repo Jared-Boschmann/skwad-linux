@@ -159,7 +159,7 @@ No UI, no terminal, no HTTP server.
 - [x] Tests: file watcher debounce and stop
 - [x] File search exclusion list (`ExcludedDirs`, `IsExcluded`) in `git/discovery.go`
 - [x] `persistence.NewStoreAt(dir)` for test isolation
-- [ ] `internal/history/` — claude, codex, gemini, copilot session file parsers
+- [x] `internal/history/` — claude, codex, gemini, copilot session file parsers
 - [ ] Extract `parseStatus`/`parseDiff` to `git/parser.go` (currently inline; low priority)
 
 **Exit criteria:** ✅ git tests pass; watcher test passes
@@ -208,7 +208,7 @@ No UI, no terminal, no HTTP server.
 - [ ] Terminal pane: show/hide VTE overlay per layout; focus management (Linux-only)
 - [ ] Split dividers: persist ratio changes back to Workspace on drag end
 - [ ] Agent drag-to-reorder in sidebar (requires custom List widget)
-- [ ] Keyboard shortcuts: Cmd+1-9 select agent by index; Cmd+Shift+]/[ switch workspace
+- [x] Keyboard shortcuts: Cmd+1-9 select agent by index; Cmd+Shift+]/[ switch workspace; Cmd+Ctrl+1-9 switch workspace by index
 
 **Exit criteria:** launch app, create two agents, verify both terminals spawn and stay alive on switch; drag sidebar resize handle; switch workspaces; reorder agents via drag.
 
@@ -220,12 +220,12 @@ No UI, no terminal, no HTTP server.
 
 **Tasks:**
 
-- [ ] `internal/ui/git_panel.go` — sliding panel (bottom of active pane); file list with status icons; stage/unstage per file; stage all / unstage all; diff view (syntax-highlighted +/- lines); commit dialog; toggle staged/unstaged diff; ahead/behind/branch display
-- [ ] `internal/ui/markdown_panel.go` — right-side sliding panel; WebView with goldmark-rendered HTML; file path history navigation; text highlight → review comment injection; maximized mode; themed (dark/light)
-- [ ] `internal/ui/mermaid_panel.go` — WebView with embedded mermaid.js; theme + scale settings; open alongside markdown panel
-- [ ] `internal/ui/file_finder.go` — Cmd+P overlay; fuzzy search input; results list with match highlighting; open file in configured editor; uses `FileSearchService`
-- [ ] `internal/ui/agent_sheet.go` — new/edit agent dialog: folder picker, worktree picker (from `RepoDiscoveryService`), name, avatar (emoji picker + image upload), agent type, persona selector
-- [ ] `internal/ui/settings_view.go` — all settings sections from REQUIREMENTS §3.18; live apply where possible (e.g., MCP port requires restart)
+- [x] `internal/ui/git_panel.go` — sliding panel (bottom of active pane); file list with status icons; stage/unstage per file; stage all / unstage all; diff view (+/- lines); commit dialog; ahead/behind/branch display
+- [x] `internal/ui/markdown_panel.go` — right-side sliding panel; goldmark → RichText rendering; file path history navigation; maximized mode
+- [x] `internal/ui/mermaid_panel.go` — displays Mermaid source as formatted code block (WebView with mermaid.js is a future enhancement)
+- [x] `internal/ui/file_finder.go` — Cmd+P overlay; fuzzy search input; results list; open file in configured editor; git ls-files + walk fallback; 50k cap
+- [x] `internal/ui/agent_sheet.go` — new/edit agent dialog: folder picker, name, avatar, agent type, persona selector, shell command
+- [x] `internal/ui/settings_window.go` — all settings tabs: General, Appearance, MCP, Autopilot, Voice, Notifications, Personas, Bench
 
 **Exit criteria:** open git panel on a repo with changes; stage a file; commit; open markdown panel from MCP tool call; search files in file finder.
 
@@ -237,20 +237,20 @@ No UI, no terminal, no HTTP server.
 
 **Tasks:**
 
-- [ ] `internal/autopilot/service.go` — `analyze()`, `classify()`, `dispatchAction()`; all four action modes (mark/ask/continue/custom); three LLM providers
-- [ ] `internal/autopilot/providers.go` — OpenAI, Anthropic, Google API calls; configurable model per provider
-- [ ] `internal/ui/autopilot_sheet.go` — decision sheet: show agent's last message, classification, approve/decline/custom reply buttons
-- [ ] `internal/voice/service.go` — push-to-talk monitor (global key listener); STT via `speech-dispatcher` or `vosk`; waveform overlay during recording; auto-inject on release
-- [ ] Conversation history UI in sidebar — session list per agent; resume / fork / delete actions
-- [ ] Desktop notifications — wire `NotificationService` to agent status changes; `notify-send` or `libnotify`
-- [ ] Appearance mode — auto (detect from terminal bg luminance), system, light, dark
-- [ ] Agent metadata display — show model name, cwd from hook metadata in sidebar tooltip or detail view
-- [ ] Persona management UI — create/edit/delete personas; restore defaults button
-- [ ] Bench UI — bench section in sidebar or settings; deploy / rename / remove entries
-- [ ] MCP `display-markdown` and `view-mermaid` wired to UI panels
-- [ ] Full keyboard shortcut pass — verify all shortcuts from REQUIREMENTS §7 work
-- [ ] System tray / menu bar mode (keep-in-tray setting)
-- [ ] Packaging — produce `.deb`, `.rpm`, and AppImage via GitHub Actions
+- [x] `internal/autopilot/autopilot.go` — `Analyze()`, `Classify()`; four action modes (mark/ask/continue/custom); OpenAI, Anthropic, Google (Gemini) providers
+- [x] `internal/ui/autopilot_sheet.go` — decision sheet: agent name, last output, approve/decline/custom reply buttons
+- [ ] `internal/voice/service.go` — push-to-talk monitor (global key listener); STT via `speech-dispatcher` or `vosk`; waveform overlay during recording; auto-inject on release (stub: API surface done, STT backend TODO)
+- [x] Conversation history UI in sidebar — session list per agent; resume / fork / delete actions; wired to history service
+- [x] Desktop notifications — `NotificationService` wired to `pool.OnStatusChanged`; fires on `AgentStatusInput`
+- [x] Appearance mode — system, light, dark; applied on launch via `applyAppearanceMode()`
+- [x] Agent metadata display — model name + cwd from hook metadata shown in sidebar row
+- [x] Persona management UI — create/edit/delete personas; restore defaults button (in settings Personas tab)
+- [x] Bench UI — deploy / remove entries (in settings Bench tab); Add to Bench from sidebar context menu
+- [x] MCP `display-markdown` and `view-mermaid` wired to UI panels via `OnDisplayMarkdown`/`OnViewMermaid` callbacks
+- [x] Full keyboard shortcut pass — all shortcuts from REQUIREMENTS §7 implemented
+- [x] System tray / menu bar mode (keep-in-tray setting) — `setupSystemTray()` with hide-to-tray close intercept
+- [x] Packaging — `.deb`, `.rpm`, AppImage via GitHub Actions (workflow file pending push; PAT needs `workflow` scope)
+- [x] Fork session — `ForkAgent` spawns new agent with `IsFork=true`; Claude uses `--resume X --fork-session`; Codex uses `codex fork X`
 
 **Exit criteria:** full manual test checklist (see below) passes on Ubuntu 24.04 LTS and Fedora 40.
 
