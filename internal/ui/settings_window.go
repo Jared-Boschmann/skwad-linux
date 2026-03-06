@@ -50,7 +50,9 @@ func (s *SettingsWindow) buildContent() fyne.CanvasObject {
 		container.NewTabItem("Coding", s.codingTab(&settings)),
 		container.NewTabItem("MCP Server", s.mcpTab(&settings)),
 		container.NewTabItem("Autopilot", s.autopilotTab(&settings)),
+		container.NewTabItem("Voice", s.voiceTab(&settings)),
 		container.NewTabItem("Appearance", s.appearanceTab(&settings)),
+		container.NewTabItem("Notifications", s.notificationsTab(&settings)),
 		container.NewTabItem("Personas", s.personasTab()),
 		container.NewTabItem("Bench", s.benchTab()),
 	)
@@ -222,6 +224,42 @@ func (s *SettingsWindow) autopilotTab(settings *models.AppSettings) fyne.CanvasO
 		widget.NewLabel("API key"), apiKeyEntry,
 		widget.NewLabel("Action"), actionSelect,
 		widget.NewLabel("Custom prompt (used with 'custom' action)"), customPromptEntry,
+	)
+}
+
+func (s *SettingsWindow) voiceTab(settings *models.AppSettings) fyne.CanvasObject {
+	enableCheck := widget.NewCheck("Enable voice input (push-to-talk)", func(v bool) {
+		settings.Voice.Enabled = v
+	})
+	enableCheck.Checked = settings.Voice.Enabled
+
+	keyEntry := widget.NewEntry()
+	keyEntry.SetText(settings.Voice.PushToTalkKey)
+	keyEntry.SetPlaceHolder("e.g. Right Shift")
+	keyEntry.OnChanged = func(v string) { settings.Voice.PushToTalkKey = v }
+
+	autoInsertCheck := widget.NewCheck("Auto-insert transcription on key release", func(v bool) {
+		settings.Voice.AutoInsert = v
+	})
+	autoInsertCheck.Checked = settings.Voice.AutoInsert
+
+	return container.NewVBox(
+		enableCheck,
+		widget.NewLabel("Push-to-talk key"), keyEntry,
+		autoInsertCheck,
+		widget.NewLabel("Note: voice recognition on Linux requires a compatible speech engine.\nConfigure via your system's speech dispatcher or whisper.cpp."),
+	)
+}
+
+func (s *SettingsWindow) notificationsTab(settings *models.AppSettings) fyne.CanvasObject {
+	enableCheck := widget.NewCheck("Enable desktop notifications", func(v bool) {
+		settings.NotificationsEnabled = v
+	})
+	enableCheck.Checked = settings.NotificationsEnabled
+
+	return container.NewVBox(
+		enableCheck,
+		widget.NewLabel("Notifications are sent when an agent enters 'input' status\n(awaiting your response)."),
 	)
 }
 
