@@ -1,0 +1,31 @@
+# Compiled binaries
+bin/
+skwad
+*.o
+*.a
+*.so
+*.test
+*.out
+coverage.html
+
+# Go
+vendor/
+
+# Config / secrets
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# Claude Code
+.claude/
+
+# Reference implementation (macOS source — not part of this repo)
+Skwad-Mac/

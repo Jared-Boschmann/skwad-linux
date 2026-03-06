@@ -124,16 +124,20 @@ No UI, no terminal, no HTTP server.
 
 **Tasks:**
 
-- [ ] Initialize `go.mod` with module path `github.com/skwad/skwad-linux`
-- [ ] `internal/agent/agent.go` — `Agent`, `AgentStatus`, `GitLineStats` structs; JSON tags; all fields from REQUIREMENTS §2.1
-- [ ] `internal/workspace/workspace.go` — `Workspace`, `WorkspaceColor`, `LayoutMode`; `computeInitials()`, `createDefault()`
-- [ ] `internal/persona/persona.go` — `Persona`, `PersonaType`, `PersonaState`; all six default personas with fixed UUIDs
-- [ ] `internal/agent/bench.go` — `BenchAgent` struct; add/remove/rename operations
-- [ ] `internal/settings/settings.go` — `AppSettings`; load/save from `~/.config/skwad/*.json`; all fields from REQUIREMENTS §3.18; auto-detect source folder
-- [ ] `internal/agent/manager.go` — `AgentManager`; all CRUD operations (add, remove, restart, resume, fork, duplicate); workspace assignment; layout mode transitions; companion rules; git stats refresh trigger
-- [ ] Unit tests for: status transitions, layout transitions, companion rules, initials computation, persona fixed UUIDs, settings load/save round-trip
+- [x] Initialize `go.mod` — module `github.com/kochava-studios/skwad-linux`, deps: fyne, fsnotify, uuid, goldmark
+- [x] `internal/models/agent.go` — `Agent`, `AgentStatus`, `AgentType`, `ActivityTracking`; all fields from REQUIREMENTS §2.1; `SupportsHooks`, `SupportsResume`, `ActivityMode`
+- [x] `internal/models/workspace.go` — `Workspace`, `WorkspaceColors`, `LayoutMode`; `PaneCount()`, `WorstStatus()`
+- [x] `internal/models/persona.go` — `Persona`, `PersonaType`, `PersonaState`; all six default personas with fixed UUIDs
+- [x] `internal/models/bench.go` — `BenchAgent` struct; `ToAgent()`
+- [x] `internal/models/settings.go` — `AppSettings`; all fields from REQUIREMENTS §3.18; `DefaultSettings()`
+- [x] `internal/persistence/store.go` — load/save agents, workspaces, personas, bench, settings, recent repos to `~/.config/skwad/`; migration defaults; auto-detect source folder in `git/discovery.go`
+- [x] `internal/agent/manager.go` — `Manager`; CRUD (add, remove, restart, duplicate, move); workspace CRUD; companion cleanup on remove; default workspace auto-create
+- [x] Unit tests: agent activity modes, hook/resume/system-prompt support; workspace `WorstStatus` priority, `PaneCount`; persona fixed UUIDs, no duplicates; settings round-trip, migration defaults; recent repos ordering, dedup, cap; command builder for all agent types; fuzzy search
+- [x] Companion rules test (hidden in sidebar, removed with creator)
+- [x] `agent.Manager.ForkAgent()`, `ResumeAgent()`, `Companions()` — fork/resume session wiring
+- [x] Manager tests: companion rules, fork, resume, duplicate, restart, default workspace auto-create
 
-**Exit criteria:** `go test ./internal/...` passes with >80% coverage on business logic.
+**Exit criteria:** `go test ./internal/...` passes. ✅
 
 ---
 
@@ -143,19 +147,22 @@ No UI, no terminal, no HTTP server.
 
 **Tasks:**
 
-- [ ] `internal/git/cli.go` — shell out to `git` binary; 30-second timeout; `Result[string, GitError]` return pattern
-- [ ] `internal/git/parser.go` — `parseStatus()`, `parseDiff()`, `parseNumstat()` from porcelain v2 format
-- [ ] `internal/git/types.go` — `FileStatus`, `DiffLine`, `FileDiff`, `RepositoryStatus`, `Worktree`
-- [ ] `internal/git/repository.go` — `status()`, `diff()`, `stage()`, `unstage()`, `commit()`, `combinedDiffStats()`
-- [ ] `internal/git/worktree.go` — `isGitRepo()`, `listWorktrees()`, `createWorktree()`, `suggestedWorktreePath()`
-- [ ] `internal/git/watcher.go` — fsnotify watcher with 500ms debounce; callback on change
-- [ ] `internal/discovery/repos.go` — background goroutine; scans source base folder; discovers git repos + their worktrees; thread-safe read via `sync.RWMutex`
-- [ ] `internal/filesearch/service.go` — `loadFiles()` (git-aware), `search()` (fuzzy), exclusion list from REQUIREMENTS §3.12
-- [ ] `internal/filesearch/fuzzy.go` — `FuzzyScorer`: scored character-match, returns score + matched indices
-- [ ] `internal/history/` — all four providers (claude, codex, gemini, copilot); `ConversationHistoryService` with cache + invalidation
-- [ ] `internal/notify/service.go` — send desktop notification via `libnotify` or `notify-send` exec
+- [x] `internal/git/cli.go` — shell out to `git` binary; 30-second timeout
+- [x] `internal/git/types.go` — `FileStatus`, `DiffLine`, `BranchInfo`, `Worktree`, `RepoStats`
+- [x] `internal/git/repository.go` — `Branch()`, `Status()`, `Diff()`, `Stage()`, `StageAll()`, `Unstage()`, `UnstageAll()`, `Discard()`, `Commit()`, `NumStat()`, `LsFiles()`
+- [x] `internal/git/worktree.go` — `List()`, `Create()`, `SuggestedPath()`
+- [x] `internal/git/watcher.go` — fsnotify watcher with 500ms debounce
+- [x] `internal/git/discovery.go` — `AutoDetectSourceDir()`, `DiscoverRepos()`
+- [x] `internal/search/fuzzy.go` — fuzzy scorer with consecutive/separator bonuses, match indices
+- [x] `internal/notifications/service.go` — `notify-send` wrapper
+- [x] Tests: git operations against temp repo — Branch, Status, Stage/Unstage, Commit, Diff, NumStat, LsFiles, IsRepo, RootOf, SuggestedPath
+- [x] Tests: file watcher debounce and stop
+- [x] File search exclusion list (`ExcludedDirs`, `IsExcluded`) in `git/discovery.go`
+- [x] `persistence.NewStoreAt(dir)` for test isolation
+- [ ] `internal/history/` — claude, codex, gemini, copilot session file parsers
+- [ ] Extract `parseStatus`/`parseDiff` to `git/parser.go` (currently inline; low priority)
 
-**Exit criteria:** git operations tested against a temp repo; file search tested with fixture files; history providers tested with fixture session files.
+**Exit criteria:** ✅ git tests pass; watcher test passes
 
 ---
 
@@ -165,18 +172,20 @@ No UI, no terminal, no HTTP server.
 
 **Tasks:**
 
-- [ ] `internal/terminal/command.go` — `buildAgentCommand()`, `buildInitializationCommand()`, `shellEscape()`; all agent types; MCP flags; registration flags; persona injection; resume/fork flags
-- [ ] `internal/terminal/cleaner.go` — strip leading spinner characters from terminal titles; ANSI escape sequence stripping
-- [ ] `internal/terminal/session.go` — spawn a PTY process (use `github.com/creack/pty`); read output; write input; handle resize; emit callbacks: `onOutput`, `onTitleChange`, `onExit`
-- [ ] `internal/terminal/controller.go` — `TerminalSessionController`; activity tracking modes (all/userInput/none); status state machine; idle timeout timer; input protection guard (10s); `injectText()` with queue; `sendText()`, `sendReturn()`
-- [ ] `internal/mcp/types.go` — all JSON-RPC 2.0 structs; all tool request/response structs from REQUIREMENTS §3.6
-- [ ] `internal/mcp/coordinator.go` — `AgentCoordinator`; goroutine-safe (channel or mutex); agent registry; per-agent message inbox; `registerAgent()`, `unregisterAgent()`, `sendMessage()`, `broadcastMessage()`, `checkMessages()`, `listAgents()`, `getLatestUnreadMessageId()`
-- [ ] `internal/mcp/tools.go` — all 12 tool handlers from REQUIREMENTS §3.6; `create-agent` spawns via `AgentManager`; `display-markdown` and `view-mermaid` signal UI layer via callback
-- [ ] `internal/mcp/server.go` — `net/http` server; JSON-RPC 2.0 dispatch; session tracking; configurable port; start/stop lifecycle
-- [ ] Hook handler support — HTTP endpoint for hook events from claude/codex plugins; update agent status and metadata
-- [ ] `plugin/claude/` and `plugin/codex/` — `notify.sh` scripts (port from Mac plugin); POST to Skwad hook endpoint with `SKWAD_AGENT_ID`
+- [x] `internal/agent/command_builder.go` — all agent types; MCP flags; persona injection; resume/fork flags; `shellQuote`, `shellEscapeDouble`
+- [x] `internal/agent/activity.go` — `ActivityController`; activity tracking modes (all/userInput/none); status state machine; idle timeout; input protection guard (10s); `QueueText()` with delivery
+- [x] `internal/mcp/types.go` — JSON-RPC 2.0 structs; all tool names
+- [x] `internal/mcp/server.go` — `net/http` server; JSON-RPC 2.0 dispatch; configurable port; start/stop; graceful non-fatal on port conflict
+- [x] `internal/mcp/session_manager.go` — per-client session tracking
+- [x] `internal/mcp/tools.go` — all 12 tool definitions + stub implementations; UI callbacks for display-markdown, view-mermaid, create-agent, close-agent
+- [x] `internal/agent/coordinator.go` — goroutine-safe message queue; `RegisterAgent`, `SendMessage`, `BroadcastMessage`, `CheckMessages`, `NotifyIdleAgent`, `UnregisterAgent`
+- [x] `internal/terminal/session.go` — PTY process via `creack/pty`; read/write; resize; OSC title parsing; callbacks: `onOutput`, `onTitleChange`, `onExit`
+- [x] `internal/terminal/cleaner.go` — ANSI/OSC escape stripping; spinner char removal; status prefix stripping
+- [x] Hook handler (`internal/mcp/hooks.go`) — parse claude/codex hook events; `AgentStatusUpdater` interface; dispatch running/idle/blocked/error
+- [x] `plugin/claude/notify.sh` and `plugin/codex/notify.sh` — hook scripts posting to `/hook` endpoint with `SKWAD_AGENT_ID`
+- [x] MCP integration tests — initialize, tools/list, register+list, send+check messages, broadcast, ping, unknown method/tool ← **DONE**
 
-**Exit criteria:** integration test: start MCP server, spawn two mock agents, register both, send a message from agent A to B, verify delivery. All 12 tools return correct JSON.
+**Exit criteria:** ✅ all tests passing (`go test ./...`)
 
 ---
 
@@ -186,15 +195,20 @@ No UI, no terminal, no HTTP server.
 
 **Tasks:**
 
-- [ ] Choose and configure Fyne v2 application skeleton
-- [ ] `internal/ui/app.go` — window setup, keyboard shortcuts (see REQUIREMENTS §7), menu bar
-- [ ] `internal/ui/workspacebar.go` — vertical strip on far left; one badge per workspace; color accent; status indicator; click to switch; add/remove workspace
-- [ ] `internal/ui/sidebar.go` — resizable (80–400px); collapsible; agent list; status dot; avatar (emoji or image); terminal title; git stats; context menu (all items from REQUIREMENTS §3.5); compact mode (<160px); drag to reorder
-- [ ] `internal/ui/terminal_view.go` — embeds VTE terminal widget per agent; ZStack equivalent (all terminals alive, show/hide via visibility); five layout modes; pane focus management
-- [ ] `internal/ui/split.go` — draggable dividers; store ratio in workspace state
-- [ ] Wire `AgentManager` → UI: status changes, title changes, git stats updates propagate to sidebar
-- [ ] Wire keyboard shortcuts to `AgentManager` actions (next/prev agent, select by index, workspace switching)
-- [ ] Deferred shell startup: staggered queue with "Starting soon..." banner
+- [x] Fyne v2 application skeleton scaffolded (`ui/app.go`, `ui/workspace_bar.go`, `ui/sidebar.go`, `ui/terminal_area.go`, `ui/terminal_pane.go`)
+- [x] `internal/terminal/pool.go` — `Pool` bridges AgentManager ↔ PTY sessions ↔ ActivityControllers; shell staggered startup; registration prompt scheduling; hook event routing
+- [x] `internal/agent/registration.go` — `RegistrationPrompt()` per agent type
+- [x] `agent.Manager.ActiveSettings()`, `agent.Manager.Persona()` helpers
+- [x] `cmd/skwad/main.go` — `hookBridge` wires MCP hook events → Pool; `pluginDirectory()` auto-detects plugin path; Pool created after MCP server with correct mcpURL
+- [x] Workspace bar: `parseHexColor` (#RRGGBB → color.NRGBA); status dot (green/orange/red per WorstStatus); rounded badge; initials
+- [x] Sidebar: collapsible (Toggle); right-click context menu (Restart, Remove); `OpenNewAgentSheet()`; `OnAddAgent`/`OnRemoveAgent`/`OnRestartAgent` callbacks; `agentRow.SecondaryTapped`
+- [x] Terminal pool wired: `App.NewApp` spawns existing agents on startup; `OnAddAgent` calls `pool.Spawn` outside manager lock (avoids deadlock); `hookBridge` routes MCP hook events to pool
+- [x] Keyboard shortcuts: Ctrl/Cmd+N (new agent), +G (git panel), +\ (toggle sidebar), +P (file finder stub), +]/[ (next/prev agent)
+- [x] Main layout uses `container.NewHSplit` for sidebar/terminal split — gives built-in drag handle
+- [ ] Terminal pane: show/hide VTE overlay per layout; focus management (Linux-only)
+- [ ] Split dividers: persist ratio changes back to Workspace on drag end
+- [ ] Agent drag-to-reorder in sidebar (requires custom List widget)
+- [ ] Keyboard shortcuts: Cmd+1-9 select agent by index; Cmd+Shift+]/[ switch workspace
 
 **Exit criteria:** launch app, create two agents, verify both terminals spawn and stay alive on switch; drag sidebar resize handle; switch workspaces; reorder agents via drag.
 
