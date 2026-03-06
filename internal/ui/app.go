@@ -226,6 +226,23 @@ func (a *App) setupKeyboardShortcuts() {
 			func(_ fyne.Shortcut) { a.selectAgentByIndex(idx) },
 		)
 	}
+	// Ctrl/Cmd+Ctrl+1..9: switch to workspace by index
+	ctrl := fyne.KeyModifierControl
+	for i, key := range []fyne.KeyName{
+		fyne.Key1, fyne.Key2, fyne.Key3, fyne.Key4, fyne.Key5,
+		fyne.Key6, fyne.Key7, fyne.Key8, fyne.Key9,
+	} {
+		idx := i // capture
+		a.window.Canvas().AddShortcut(
+			&desktop.CustomShortcut{KeyName: key, Modifier: mod | ctrl},
+			func(_ fyne.Shortcut) { a.selectWorkspaceByIndex(idx) },
+		)
+	}
+	// Ctrl/Cmd+Shift+O: open focused agent's folder in default editor
+	a.window.Canvas().AddShortcut(
+		&desktop.CustomShortcut{KeyName: fyne.KeyO, Modifier: mod | shift},
+		func(_ fyne.Shortcut) { a.openWithDefaultEditor() },
+	)
 }
 
 // selectAdjacentAgent moves the focused pane to the next or previous agent.
@@ -353,6 +370,37 @@ func (a *App) ShowMarkdownFile(filePath string) {
 // ShowMermaid renders a Mermaid diagram (called by MCP).
 func (a *App) ShowMermaid(source, title string) {
 	a.terminalArea.ShowMermaid(source, title)
+}
+
+// selectWorkspaceByIndex switches to the workspace at 0-based index.
+func (a *App) selectWorkspaceByIndex(idx int) {
+	workspaces := a.manager.Workspaces()
+	if idx >= len(workspaces) {
+		return
+	}
+	a.manager.SetActiveWorkspace(workspaces[idx].ID)
+}
+
+// openWithDefaultEditor opens the focused agent's folder in the configured editor.
+func (a *App) openWithDefaultEditor() {
+	ws := a.manager.ActiveWorkspace()
+	if ws == nil || len(ws.ActiveAgentIDs) == 0 {
+		return
+	}
+	agentID := ws.ActiveAgentIDs[0]
+	if ws.FocusedPaneIndex < len(ws.ActiveAgentIDs) {
+		agentID = ws.ActiveAgentIDs[ws.FocusedPaneIndex]
+	}
+	ag, ok := a.manager.Agent(agentID)
+	if !ok || ag.Folder == "" {
+		return
+	}
+	settings := a.store.Settings()
+	if settings.DefaultOpenWithApp != "" {
+		_ = runDetached(settings.DefaultOpenWithApp, ag.Folder)
+	} else {
+		openFileExternal(ag.Folder)
+	}
 }
 
 // openHistoryPanel shows a session history popup for the given agent.
