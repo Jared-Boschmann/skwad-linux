@@ -87,9 +87,39 @@ func (ff *FileFinder) onQueryChanged(query string) {
 	ff.list.Refresh()
 }
 
-// IndexFolder walks the folder and builds the file list, respecting ExcludedDirs.
+const maxIndexFiles = 50_000
+
+// IndexFolder indexes the folder for fuzzy search.
+// In git repos, uses `git ls-files` for accurate tracked-file listing.
+// Falls back to a filesystem walk otherwise.
 func (ff *FileFinder) IndexFolder(folder string) {
 	ff.folder = folder
+	ff.files = indexFolder(folder)
+}
+
+func indexFolder(folder string) []string {
+	// Try git ls-files first (fast, respects .gitignore, excludes untracked).
+	if files := gitLsFiles(folder); len(files) > 0 {
+		return files
+	}
+	return walkFiles(folder)
+}
+
+// gitLsFiles runs `git ls-files` in folder and returns relative paths.
+func gitLsFiles(folder string) []string {
+	repo := git.NewRepository(folder)
+	files, err := repo.LsFiles()
+	if err != nil || len(files) == 0 {
+		return nil
+	}
+	if len(files) > maxIndexFiles {
+		files = files[:maxIndexFiles]
+	}
+	return files
+}
+
+// walkFiles walks the directory tree, skipping excluded dirs.
+func walkFiles(folder string) []string {
 	var files []string
 	_ = filepath.WalkDir(folder, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -106,9 +136,12 @@ func (ff *FileFinder) IndexFolder(folder string) {
 			return nil
 		}
 		files = append(files, rel)
+		if len(files) >= maxIndexFiles {
+			return filepath.SkipAll
+		}
 		return nil
 	})
-	ff.files = files
+	return files
 }
 
 // Widget returns the overlay widget.

@@ -181,7 +181,12 @@ func (a *App) buildWindow() {
 	// The HSplit drag handle lets the user resize the sidebar.
 	leftPanel := container.NewBorder(nil, nil, a.workspaceBar.Widget(), nil, a.sidebar.Widget())
 	a.mainSplit = container.NewHSplit(leftPanel, a.terminalArea.Widget())
-	a.mainSplit.Offset = sidebarSplitOffset
+	// Restore the persisted split ratio if the user has moved it before.
+	if saved := a.store.LoadSidebarSplitOffset(); saved > 0 {
+		a.mainSplit.Offset = saved
+	} else {
+		a.mainSplit.Offset = sidebarSplitOffset
+	}
 
 	a.window.SetContent(a.mainSplit)
 	a.setupKeyboardShortcuts()
