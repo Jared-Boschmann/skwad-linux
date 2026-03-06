@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -10,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/Jared-Boschmann/skwad-linux/internal/agent"
 	"github.com/Jared-Boschmann/skwad-linux/internal/autopilot"
+	"github.com/Jared-Boschmann/skwad-linux/internal/git"
 	"github.com/Jared-Boschmann/skwad-linux/internal/mcp"
 	"github.com/Jared-Boschmann/skwad-linux/internal/models"
 	"github.com/Jared-Boschmann/skwad-linux/internal/notifications"
@@ -179,6 +181,56 @@ func main() {
 		}
 		mcpServer.OnViewMermaid = func(_ string, source, title string) {
 			skwadApp.ShowMermaid(source, title)
+		}
+		mcpServer.OnCreateAgent = func(req mcp.CreateAgentRequest) error {
+			folder := req.Folder
+			if req.NewWorktree && req.BranchName != "" {
+				destPath := git.SuggestedPath(folder, req.BranchName)
+				wm := git.NewWorktreeManager(folder)
+				if err := wm.Create(req.BranchName, destPath); err != nil {
+					return fmt.Errorf("create worktree: %w", err)
+				}
+				folder = destPath
+			}
+			at := models.AgentType(req.AgentType)
+			if at == "" {
+				at = models.AgentTypeClaude
+			}
+			newAg := &models.Agent{
+				ID:          uuid.New(),
+				Name:        req.Name,
+				Avatar:      "🤖",
+				Folder:      folder,
+				AgentType:   at,
+				IsCompanion: req.IsCompanion,
+			}
+			if req.CreatedByID != "" {
+				if cid, err := uuid.Parse(req.CreatedByID); err == nil {
+					newAg.CreatedBy = &cid
+				}
+			}
+			agentMgr.AddAgent(newAg, nil)
+			pool.Spawn(newAg)
+			return nil
+		}
+		mcpServer.OnCloseAgent = func(callerID, targetID string) error {
+			tid, err := uuid.Parse(targetID)
+			if err != nil {
+				return fmt.Errorf("invalid agent ID: %w", err)
+			}
+			target, ok := agentMgr.Agent(tid)
+			if !ok {
+				return fmt.Errorf("agent not found: %s", targetID)
+			}
+			// Only allow closing agents created by the caller.
+			if target.CreatedBy != nil {
+				if cid, err := uuid.Parse(callerID); err == nil && *target.CreatedBy == cid {
+					pool.Kill(tid)
+					agentMgr.RemoveAgent(tid)
+					return nil
+				}
+			}
+			return fmt.Errorf("not authorized to close agent %s", targetID)
 		}
 	}
 
