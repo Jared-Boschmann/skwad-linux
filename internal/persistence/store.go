@@ -96,7 +96,8 @@ func (s *Store) SaveWorkspaces(ws []models.Workspace) error {
 // --- Active workspace ID ---
 
 type stateData struct {
-	ActiveWorkspaceID string `json:"activeWorkspaceId"`
+	ActiveWorkspaceID  string  `json:"activeWorkspaceId"`
+	SidebarSplitOffset float64 `json:"sidebarSplitOffset"`
 }
 
 func (s *Store) LoadActiveWorkspaceID() (uuid.UUID, error) {
@@ -108,7 +109,28 @@ func (s *Store) LoadActiveWorkspaceID() (uuid.UUID, error) {
 }
 
 func (s *Store) SaveActiveWorkspaceID(id uuid.UUID) error {
-	return s.save(stateFile, stateData{ActiveWorkspaceID: id.String()})
+	var state stateData
+	_ = s.load(stateFile, &state)
+	state.ActiveWorkspaceID = id.String()
+	return s.save(stateFile, state)
+}
+
+// LoadSidebarSplitOffset returns the persisted sidebar split ratio (default 0.20).
+func (s *Store) LoadSidebarSplitOffset() float64 {
+	var state stateData
+	_ = s.load(stateFile, &state)
+	if state.SidebarSplitOffset <= 0 {
+		return 0.20
+	}
+	return state.SidebarSplitOffset
+}
+
+// SaveSidebarSplitOffset persists the sidebar split ratio.
+func (s *Store) SaveSidebarSplitOffset(offset float64) error {
+	var state stateData
+	_ = s.load(stateFile, &state)
+	state.SidebarSplitOffset = offset
+	return s.save(stateFile, state)
 }
 
 // --- Personas ---

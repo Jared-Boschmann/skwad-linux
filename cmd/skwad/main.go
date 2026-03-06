@@ -90,6 +90,17 @@ func main() {
 	}()
 
 	skwadApp := ui.NewApp(agentMgr, coordinator, store, pool)
+
+	// Wire MCP display callbacks to the UI layer.
+	if mcpServer != nil {
+		mcpServer.OnDisplayMarkdown = func(_ string, filePath string) {
+			skwadApp.ShowMarkdownFile(filePath)
+		}
+		mcpServer.OnViewMermaid = func(_ string, source, title string) {
+			skwadApp.ShowMermaid(source, title)
+		}
+	}
+
 	skwadApp.Run()
 }
 

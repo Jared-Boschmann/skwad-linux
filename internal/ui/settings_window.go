@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"strconv"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
@@ -83,6 +85,14 @@ func (s *SettingsWindow) terminalTab(settings *models.AppSettings) fyne.CanvasOb
 	fontEntry.SetText(settings.TerminalFontName)
 	fontEntry.OnChanged = func(v string) { settings.TerminalFontName = v }
 
+	sizeEntry := widget.NewEntry()
+	sizeEntry.SetText(strconv.Itoa(settings.TerminalFontSize))
+	sizeEntry.OnChanged = func(v string) {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			settings.TerminalFontSize = n
+		}
+	}
+
 	bgEntry := widget.NewEntry()
 	bgEntry.SetText(settings.TerminalBgColor)
 	bgEntry.OnChanged = func(v string) { settings.TerminalBgColor = v }
@@ -93,6 +103,7 @@ func (s *SettingsWindow) terminalTab(settings *models.AppSettings) fyne.CanvasOb
 
 	return container.NewVBox(
 		widget.NewLabel("Font"), fontEntry,
+		widget.NewLabel("Font size"), sizeEntry,
 		widget.NewLabel("Background color (hex)"), bgEntry,
 		widget.NewLabel("Foreground color (hex)"), fgEntry,
 	)
@@ -107,7 +118,9 @@ func (s *SettingsWindow) mcpTab(settings *models.AppSettings) fyne.CanvasObject 
 	portEntry := widget.NewEntry()
 	portEntry.SetText(itoa(settings.MCPServerPort))
 	portEntry.OnChanged = func(v string) {
-		// TODO: parse int
+		if p, err := strconv.Atoi(v); err == nil && p > 0 && p < 65536 {
+			settings.MCPServerPort = p
+		}
 	}
 
 	return container.NewVBox(

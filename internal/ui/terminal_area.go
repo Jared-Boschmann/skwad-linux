@@ -4,8 +4,14 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 
+	"github.com/google/uuid"
 	"github.com/Jared-Boschmann/skwad-linux/internal/agent"
 	"github.com/Jared-Boschmann/skwad-linux/internal/models"
+)
+
+const (
+	gitPanelSplitOffset      = 0.65 // 65% terminal, 35% git panel
+	markdownPanelSplitOffset = 0.60 // 60% terminal, 40% markdown panel
 )
 
 // TerminalArea manages the main content area with split-pane layout.
@@ -41,12 +47,38 @@ func (ta *TerminalArea) build() {
 	ta.container = container.NewStack(ta.panes())
 }
 
+// panes builds the full content tree: terminal layout optionally wrapped
+// with the git panel (below) or markdown panel (right).
 func (ta *TerminalArea) panes() fyne.CanvasObject {
 	ws := ta.manager.ActiveWorkspace()
 	if ws == nil {
 		return container.NewStack()
 	}
 
+	terminals := ta.buildLayout(ws)
+
+	if ta.showGit && ta.showMarkdown {
+		gitSplit := container.NewVSplit(terminals, ta.gitPanel.Widget())
+		gitSplit.Offset = gitPanelSplitOffset
+		mdSplit := container.NewHSplit(gitSplit, ta.markdownPanel.Widget())
+		mdSplit.Offset = markdownPanelSplitOffset
+		return mdSplit
+	}
+	if ta.showGit {
+		split := container.NewVSplit(terminals, ta.gitPanel.Widget())
+		split.Offset = gitPanelSplitOffset
+		return split
+	}
+	if ta.showMarkdown {
+		split := container.NewHSplit(terminals, ta.markdownPanel.Widget())
+		split.Offset = markdownPanelSplitOffset
+		return split
+	}
+	return terminals
+}
+
+// buildLayout returns the terminal pane layout for the given workspace.
+func (ta *TerminalArea) buildLayout(ws *models.Workspace) fyne.CanvasObject {
 	switch ws.LayoutMode {
 	case models.LayoutModeSplitVertical:
 		return ta.splitVertical(ws)
@@ -134,6 +166,19 @@ func (ta *TerminalArea) gridFourPane(ws *models.Workspace) fyne.CanvasObject {
 	return mainSplit
 }
 
+// focusedAgentID returns the ID of the agent in the focused pane, if any.
+func (ta *TerminalArea) focusedAgentID() (uuid.UUID, bool) {
+	ws := ta.manager.ActiveWorkspace()
+	if ws == nil || len(ws.ActiveAgentIDs) == 0 {
+		return uuid.UUID{}, false
+	}
+	idx := ws.FocusedPaneIndex
+	if idx >= len(ws.ActiveAgentIDs) {
+		idx = 0
+	}
+	return ws.ActiveAgentIDs[idx], true
+}
+
 // Refresh rebuilds the layout.
 func (ta *TerminalArea) Refresh() {
 	ta.container.Objects = []fyne.CanvasObject{ta.panes()}
@@ -145,14 +190,34 @@ func (ta *TerminalArea) Widget() fyne.CanvasObject {
 	return ta.container
 }
 
-// ToggleGitPanel shows or hides the git panel.
+// ToggleGitPanel shows or hides the git panel, loading it for the focused agent.
 func (ta *TerminalArea) ToggleGitPanel() {
 	ta.showGit = !ta.showGit
+	if ta.showGit {
+		if id, ok := ta.focusedAgentID(); ok {
+			ta.gitPanel.SetAgent(id)
+		}
+	}
 	ta.Refresh()
 }
 
 // ToggleMarkdownPanel shows or hides the markdown panel.
 func (ta *TerminalArea) ToggleMarkdownPanel() {
 	ta.showMarkdown = !ta.showMarkdown
+	ta.Refresh()
+}
+
+// ShowMarkdownFile opens a file in the markdown panel and makes it visible.
+func (ta *TerminalArea) ShowMarkdownFile(path string) {
+	ta.showMarkdown = true
+	ta.markdownPanel.ShowFile(path)
+	ta.Refresh()
+}
+
+// ShowMermaid renders a Mermaid diagram source via the markdown panel (stub).
+func (ta *TerminalArea) ShowMermaid(source, title string) {
+	// TODO: implement dedicated MermaidPanel with embedded WebView.
+	ta.showMarkdown = true
+	ta.markdownPanel.ShowMermaidSource(source, title)
 	ta.Refresh()
 }

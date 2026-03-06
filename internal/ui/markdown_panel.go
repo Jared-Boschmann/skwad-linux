@@ -94,5 +94,14 @@ func (mp *MarkdownPanel) loadFile(path string) {
 	mp.content.Refresh()
 }
 
+// ShowMermaidSource displays raw Mermaid source in the panel as a code block.
+// A proper WebView-based renderer is a future enhancement.
+func (mp *MarkdownPanel) ShowMermaidSource(source, title string) {
+	path := "Mermaid: " + title
+	mp.title.SetText(path)
+	mp.content.ParseMarkdown("**" + title + "**\n\n```\n" + source + "\n```\n")
+	mp.content.Refresh()
+}
+
 // Widget returns the panel widget.
 func (mp *MarkdownPanel) Widget() fyne.CanvasObject { return mp.outer }
