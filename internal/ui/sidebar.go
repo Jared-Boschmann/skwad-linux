@@ -33,12 +33,16 @@ type Sidebar struct {
 	store  *persistence.Store
 
 	// Callbacks — set by App before the window is shown.
-	OnAddAgent       func(a *models.Agent)
-	OnRemoveAgent    func(id uuid.UUID)
-	OnRestartAgent   func(id uuid.UUID)
-	OnDuplicateAgent func(id uuid.UUID)
-	OnShowHistory    func(id uuid.UUID)
-	OnAddToBench     func(id uuid.UUID)
+	OnAddAgent         func(a *models.Agent)
+	OnRemoveAgent      func(id uuid.UUID)
+	OnRestartAgent     func(id uuid.UUID)
+	OnDuplicateAgent   func(id uuid.UUID)
+	OnShowHistory      func(id uuid.UUID)
+	OnAddToBench       func(id uuid.UUID)
+	OnEditAgent        func(id uuid.UUID)
+	OnForkSession      func(id uuid.UUID)
+	OnMoveToWorkspace  func(agentID, workspaceID uuid.UUID)
+	OnRegisterAgent    func(id uuid.UUID)
 }
 
 // NewSidebar creates the agent list sidebar.
@@ -116,7 +120,13 @@ func (s *Sidebar) showContextMenu(agentID uuid.UUID, pos fyne.Position) {
 	if s.window == nil {
 		return
 	}
+
 	items := []*fyne.MenuItem{
+		fyne.NewMenuItem("Edit…", func() {
+			if s.OnEditAgent != nil {
+				s.OnEditAgent(agentID)
+			}
+		}),
 		fyne.NewMenuItem("Restart", func() {
 			if s.OnRestartAgent != nil {
 				s.OnRestartAgent(agentID)
@@ -138,13 +148,50 @@ func (s *Sidebar) showContextMenu(agentID uuid.UUID, pos fyne.Position) {
 				s.OnShowHistory(agentID)
 			}
 		}),
+		fyne.NewMenuItem("Fork Session", func() {
+			if s.OnForkSession != nil {
+				s.OnForkSession(agentID)
+			}
+		}),
+		fyne.NewMenuItemSeparator(),
+	}
+
+	// "Move to workspace" submenu — one item per workspace that is not the current one.
+	workspaces := s.manager.Workspaces()
+	active := s.manager.ActiveWorkspace()
+	var moveItems []*fyne.MenuItem
+	for _, ws := range workspaces {
+		if active != nil && ws.ID == active.ID {
+			continue
+		}
+		wsID := ws.ID
+		wsName := ws.Name
+		moveItems = append(moveItems, fyne.NewMenuItem(wsName, func() {
+			if s.OnMoveToWorkspace != nil {
+				s.OnMoveToWorkspace(agentID, wsID)
+			}
+		}))
+	}
+	if len(moveItems) > 0 {
+		moveMenu := fyne.NewMenuItem("Move to Workspace", nil)
+		moveMenu.ChildMenu = fyne.NewMenu("", moveItems...)
+		items = append(items, moveMenu)
+	}
+
+	items = append(items,
+		fyne.NewMenuItem("Register", func() {
+			if s.OnRegisterAgent != nil {
+				s.OnRegisterAgent(agentID)
+			}
+		}),
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Remove", func() {
 			if s.OnRemoveAgent != nil {
 				s.OnRemoveAgent(agentID)
 			}
 		}),
-	}
+	)
+
 	menu := fyne.NewMenu("", items...)
 	widget.ShowPopUpMenuAtPosition(menu, s.window.Canvas(), pos)
 }

@@ -177,6 +177,23 @@ func (p *Pool) spawnNow(agentID uuid.UUID, a *models.Agent, cmd string, env []st
 	}()
 }
 
+// ForceRegistration re-injects the MCP registration prompt for the given agent.
+// This is used by the "Register" context menu item to force re-registration.
+func (p *Pool) ForceRegistration(agentID uuid.UUID) {
+	a, ok := p.manager.Agent(agentID)
+	if !ok {
+		return
+	}
+	settings := p.manager.ActiveSettings()
+	if settings == nil || !settings.MCPServerEnabled {
+		return
+	}
+	prompt := agent.RegistrationPrompt(agentID, p.mcpURL, a.AgentType)
+	if prompt != "" {
+		p.InjectText(agentID, prompt)
+	}
+}
+
 // LastOutput returns the most recent clean terminal output for the agent (up to 4KB).
 func (p *Pool) LastOutput(agentID uuid.UUID) string {
 	p.lastOutputMu.RLock()

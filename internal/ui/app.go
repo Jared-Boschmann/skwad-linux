@@ -124,6 +124,39 @@ func (a *App) buildWindow() {
 		})
 		_ = a.store.SaveBench(bench)
 	}
+	a.sidebar.OnEditAgent = func(id uuid.UUID) {
+		ag, ok := a.manager.Agent(id)
+		if !ok {
+			return
+		}
+		personas, _ := a.store.LoadPersonas()
+		sheet := EditAgentSheet(a.window, ag, personas, func(updated *models.Agent) {
+			a.manager.UpdateAgent(id, func(a *models.Agent) {
+				a.Name = updated.Name
+				a.Avatar = updated.Avatar
+				a.Folder = updated.Folder
+				a.AgentType = updated.AgentType
+				a.ShellCommand = updated.ShellCommand
+				a.PersonaID = updated.PersonaID
+			})
+		})
+		sheet.Show()
+	}
+	a.sidebar.OnForkSession = func(id uuid.UUID) {
+		ag, ok := a.manager.Agent(id)
+		if !ok || ag.SessionID == "" {
+			return
+		}
+		a.manager.ForkAgent(id, ag.SessionID)
+		a.pool.Restart(id)
+	}
+	a.sidebar.OnMoveToWorkspace = func(agentID, workspaceID uuid.UUID) {
+		a.manager.MoveAgent(agentID, workspaceID)
+	}
+	a.sidebar.OnRegisterAgent = func(id uuid.UUID) {
+		a.pool.ForceRegistration(id)
+	}
+
 	a.settingsWindow.window = a.window
 	a.settingsWindow.OnDeployBenchAgent = func(ag *models.Agent) {
 		a.manager.AddAgent(ag, nil)
@@ -152,14 +185,24 @@ func (a *App) buildWindow() {
 
 	a.window.SetContent(a.mainSplit)
 	a.setupKeyboardShortcuts()
+	a.setupSystemTray()
 
 	// Persist split ratio when the window closes.
-	a.window.SetCloseIntercept(func() {
-		a.store.SaveSidebarSplitOffset(a.mainSplit.Offset)
-		a.pool.StopAll()
-		a.manager.Shutdown()
-		a.fyneApp.Quit()
-	})
+	settings := a.store.Settings()
+	if settings.KeepInTray {
+		// Hide to tray instead of quitting.
+		a.window.SetCloseIntercept(func() {
+			a.store.SaveSidebarSplitOffset(a.mainSplit.Offset)
+			a.window.Hide()
+		})
+	} else {
+		a.window.SetCloseIntercept(func() {
+			a.store.SaveSidebarSplitOffset(a.mainSplit.Offset)
+			a.pool.StopAll()
+			a.manager.Shutdown()
+			a.fyneApp.Quit()
+		})
+	}
 }
 
 func (a *App) setupKeyboardShortcuts() {
@@ -462,6 +505,33 @@ func (a *App) openHistoryPanel(agentID uuid.UUID) {
 	popup = widget.NewModalPopUp(list, a.window.Canvas())
 	popup.Resize(fyne.NewSize(600, 400))
 	popup.Show()
+}
+
+// setupSystemTray configures the system tray icon and menu when KeepInTray is enabled.
+func (a *App) setupSystemTray() {
+	settings := a.store.Settings()
+	if !settings.KeepInTray {
+		return
+	}
+	dt, ok := a.fyneApp.(desktop.App)
+	if !ok {
+		return
+	}
+
+	dt.SetSystemTrayIcon(theme.ComputerIcon())
+	dt.SetSystemTrayMenu(fyne.NewMenu("Skwad",
+		fyne.NewMenuItem("Show Skwad", func() {
+			a.window.Show()
+			a.window.RequestFocus()
+		}),
+		fyne.NewMenuItemSeparator(),
+		fyne.NewMenuItem("Quit", func() {
+			a.store.SaveSidebarSplitOffset(a.mainSplit.Offset)
+			a.pool.StopAll()
+			a.manager.Shutdown()
+			a.fyneApp.Quit()
+		}),
+	))
 }
 
 // Run starts the Fyne event loop (blocks until window is closed).
