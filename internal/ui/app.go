@@ -184,7 +184,6 @@ func (a *App) buildWindow() {
 		a.pool.Spawn(companion)
 	}
 
-	a.settingsWindow.window = a.window
 	a.settingsWindow.OnSave = func() {
 		a.applyAppearanceMode()
 	}

@@ -27,9 +27,9 @@ const (
 type WorkspaceBar struct {
 	manager    *agent.Manager
 	window     fyne.Window
-	vbox       *fyne.Container
-	container  *fyne.Container
-	OnSettings func() // called when the settings gear is tapped
+	badgeVBox  *fyne.Container // workspace badges + add button, refreshed on change
+	container  *fyne.Container // full bar: badges top, settings gear bottom
+	OnSettings func()          // called when the settings gear is tapped
 }
 
 // NewWorkspaceBar creates the workspace bar.
@@ -41,12 +41,24 @@ func NewWorkspaceBar(mgr *agent.Manager) *WorkspaceBar {
 
 func (wb *WorkspaceBar) build() {
 	bg := canvas.NewRectangle(color.NRGBA{R: 20, G: 22, B: 35, A: 255})
-	bg.SetMinSize(fyne.NewSize(workspaceBarWidth, 1)) // forces the Border layout to allocate full bar width
-	wb.vbox = container.NewVBox(wb.items()...)
-	wb.container = container.NewStack(bg, wb.vbox)
+	bg.SetMinSize(fyne.NewSize(workspaceBarWidth, 1)) // forces Border layout to allocate full bar width
+
+	wb.badgeVBox = container.NewVBox(wb.badgeItems()...)
+
+	settingsBtn := widget.NewButtonWithIcon("", theme.SettingsIcon(), func() {
+		if wb.OnSettings != nil {
+			wb.OnSettings()
+		}
+	})
+
+	// Badges fill the top; settings gear is locked to the bottom.
+	inner := container.NewBorder(nil, settingsBtn, nil, nil, wb.badgeVBox)
+	wb.container = container.NewStack(bg, inner)
 }
 
-func (wb *WorkspaceBar) items() []fyne.CanvasObject {
+// badgeItems returns workspace badges and the add-workspace button.
+// The settings button is NOT included here — it is pinned separately to the bottom.
+func (wb *WorkspaceBar) badgeItems() []fyne.CanvasObject {
 	workspaces := wb.manager.Workspaces()
 	activeWS := wb.manager.ActiveWorkspace()
 
@@ -63,16 +75,6 @@ func (wb *WorkspaceBar) items() []fyne.CanvasObject {
 	}
 
 	items = append(items, newAddWorkspaceButton(func() { wb.showNewWorkspaceDialog() }))
-
-	// Settings gear at the very bottom, pinned via a spacer.
-	spacer := canvas.NewRectangle(color.Transparent)
-	spacer.SetMinSize(fyne.NewSize(1, 8))
-	settingsBtn := widget.NewButtonWithIcon("", theme.SettingsIcon(), func() {
-		if wb.OnSettings != nil {
-			wb.OnSettings()
-		}
-	})
-	items = append(items, spacer, settingsBtn)
 	return items
 }
 
@@ -168,10 +170,10 @@ func (wb *WorkspaceBar) wsAgents(ws *models.Workspace) []*models.Agent {
 	return agents
 }
 
-// Refresh rebuilds the workspace bar to reflect current state.
+// Refresh rebuilds the workspace badges to reflect current state.
 func (wb *WorkspaceBar) Refresh() {
-	wb.vbox.Objects = wb.items()
-	wb.vbox.Refresh()
+	wb.badgeVBox.Objects = wb.badgeItems()
+	wb.badgeVBox.Refresh()
 }
 
 // Widget returns the Fyne widget for embedding in the layout.
