@@ -3,6 +3,7 @@ package ui
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/widget"
 
 	"github.com/google/uuid"
 	"github.com/Jared-Boschmann/skwad-linux/internal/agent"
@@ -23,14 +24,15 @@ const (
 // VTE window is a sibling X11 window kept in sync with those bounds.
 // See internal/terminal/vte.go for the embedding strategy details.
 type TerminalArea struct {
-	manager   *agent.Manager
-	container *fyne.Container
+	manager        *agent.Manager
+	container      *fyne.Container // outer (toolbar + panes)
+	panesContainer *fyne.Container // inner (refreshed on layout change)
 
 	gitPanel      *GitPanel
 	markdownPanel *MarkdownPanel
 	mermaidPanel  *MermaidPanel
 
-	showGit     bool
+	showGit      bool
 	showMarkdown bool
 	showMermaid  bool
 }
@@ -48,7 +50,45 @@ func NewTerminalArea(mgr *agent.Manager) *TerminalArea {
 }
 
 func (ta *TerminalArea) build() {
-	ta.container = container.NewStack(ta.panes())
+	ta.panesContainer = container.NewStack(ta.panes())
+	toolbar := ta.buildLayoutToolbar()
+	ta.container = container.NewBorder(toolbar, nil, nil, nil, ta.panesContainer)
+}
+
+// buildLayoutToolbar returns a compact row of layout mode buttons.
+func (ta *TerminalArea) buildLayoutToolbar() fyne.CanvasObject {
+	layouts := []struct {
+		label string
+		mode  models.LayoutMode
+	}{
+		{"⬜", models.LayoutModeSingle},
+		{"⬛⬜", models.LayoutModeSplitVertical},
+		{"⬛/⬜", models.LayoutModeSplitHorizontal},
+		{"⬛⬛⬜", models.LayoutModeThreePane},
+		{"⬛⬛⬛⬛", models.LayoutModeGridFourPane},
+	}
+
+	var btns []fyne.CanvasObject
+	for _, l := range layouts {
+		l := l // capture
+		btn := widget.NewButton(l.label, func() {
+			ws := ta.manager.ActiveWorkspace()
+			if ws == nil {
+				return
+			}
+			ta.manager.UpdateWorkspace(ws.ID, func(w *models.Workspace) {
+				w.LayoutMode = l.mode
+				// Ensure enough agent slots for the new pane count.
+				need := l.mode.PaneCount()
+				for len(w.ActiveAgentIDs) < need && len(w.AgentIDs) > len(w.ActiveAgentIDs) {
+					w.ActiveAgentIDs = append(w.ActiveAgentIDs, w.AgentIDs[len(w.ActiveAgentIDs)])
+				}
+			})
+			ta.Refresh()
+		})
+		btns = append(btns, btn)
+	}
+	return container.NewHBox(btns...)
 }
 
 // panes builds the full content tree: terminal layout optionally wrapped
@@ -190,10 +230,10 @@ func (ta *TerminalArea) focusedAgentID() (uuid.UUID, bool) {
 	return ws.ActiveAgentIDs[idx], true
 }
 
-// Refresh rebuilds the layout.
+// Refresh rebuilds the pane layout without touching the toolbar.
 func (ta *TerminalArea) Refresh() {
-	ta.container.Objects = []fyne.CanvasObject{ta.panes()}
-	ta.container.Refresh()
+	ta.panesContainer.Objects = []fyne.CanvasObject{ta.panes()}
+	ta.panesContainer.Refresh()
 }
 
 // Widget returns the terminal area widget.

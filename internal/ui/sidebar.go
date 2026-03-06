@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -177,6 +178,7 @@ type agentRow struct {
 	status         *widget.Label
 	gitStats       *widget.Label
 	title          *widget.Label
+	meta           *widget.Label // cwd / model from hook metadata
 	onSecondaryTap func(id uuid.UUID, pos fyne.Position)
 }
 
@@ -187,6 +189,7 @@ func newAgentRow() *agentRow {
 		status:   widget.NewLabel(""),
 		gitStats: widget.NewLabel(""),
 		title:    widget.NewLabel(""),
+		meta:     widget.NewLabel(""),
 	}
 	r.ExtendBaseWidget(r)
 	return r
@@ -199,19 +202,22 @@ func (r *agentRow) update(a *models.Agent, compact bool) {
 	r.gitStats.SetText(gitStatsText(a.GitStats))
 	if compact {
 		r.title.SetText("")
+		r.meta.SetText("")
 	} else {
 		r.title.SetText(a.TerminalTitle)
+		r.meta.SetText(agentMetaText(a))
 	}
 }
 
 func (r *agentRow) CreateRenderer() fyne.WidgetRenderer {
+	top := container.NewHBox(r.status, r.avatar, r.name)
 	if r.gitStats.Text != "" {
-		return widget.NewSimpleRenderer(container.NewVBox(
-			container.NewHBox(r.status, r.avatar, r.name, r.gitStats),
-			r.title,
-		))
+		top.Add(r.gitStats)
 	}
-	return widget.NewSimpleRenderer(container.NewHBox(r.status, r.avatar, r.name))
+	if r.title.Text != "" || r.meta.Text != "" {
+		return widget.NewSimpleRenderer(container.NewVBox(top, r.title, r.meta))
+	}
+	return widget.NewSimpleRenderer(top)
 }
 
 // SecondaryTapped handles right-click / secondary tap on an agent row.
@@ -239,4 +245,31 @@ func gitStatsText(gs models.GitStats) string {
 		return ""
 	}
 	return fmt.Sprintf("+%d -%d", gs.Insertions, gs.Deletions)
+}
+
+// agentMetaText builds a compact metadata string from hook-reported cwd/model.
+func agentMetaText(a *models.Agent) string {
+	model := a.Metadata["model"]
+	cwd := a.WorkingFolder
+	switch {
+	case model != "" && cwd != "":
+		return model + "  " + shortenPath(cwd)
+	case model != "":
+		return model
+	case cwd != "":
+		return shortenPath(cwd)
+	}
+	return ""
+}
+
+// shortenPath returns the last two path components to keep the display brief.
+func shortenPath(p string) string {
+	if p == "" {
+		return ""
+	}
+	parts := strings.Split(strings.TrimRight(p, "/"), "/")
+	if len(parts) <= 2 {
+		return p
+	}
+	return "…/" + parts[len(parts)-2] + "/" + parts[len(parts)-1]
 }
