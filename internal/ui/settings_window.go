@@ -21,6 +21,8 @@ type SettingsWindow struct {
 
 	// OnDeployBenchAgent is called when the user clicks Deploy on a bench entry.
 	OnDeployBenchAgent func(ag *models.Agent)
+	// OnSave is called after settings are persisted (for live-apply in the parent).
+	OnSave func()
 }
 
 // NewSettingsWindow creates but does not show the settings window.
@@ -59,6 +61,9 @@ func (s *SettingsWindow) buildContent() fyne.CanvasObject {
 
 	saveBtn := widget.NewButton("Save", func() {
 		_ = s.store.SaveSettings(settings)
+		if s.OnSave != nil {
+			s.OnSave()
+		}
 		if s.window != nil {
 			s.window.Hide()
 		}

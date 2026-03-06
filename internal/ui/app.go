@@ -178,6 +178,9 @@ func (a *App) buildWindow() {
 	}
 
 	a.settingsWindow.window = a.window
+	a.settingsWindow.OnSave = func() {
+		a.applyAppearanceMode()
+	}
 	a.settingsWindow.OnDeployBenchAgent = func(ag *models.Agent) {
 		a.manager.AddAgent(ag, nil)
 		a.pool.Spawn(ag)
