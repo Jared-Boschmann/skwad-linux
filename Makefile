@@ -1,21 +1,27 @@
 APP      := skwad
-MODULE   := github.com/kochava-studios/skwad-linux
+MODULE   := github.com/Jared-Boschmann/skwad-linux
 BIN      := ./bin/$(APP)
 CMD      := ./cmd/$(APP)
+VERSION  := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+LDFLAGS  := -ldflags "-s -w -X main.version=$(VERSION)"
 
 PKG_DEPS := vte-2.91 gtk+-3.0
 
-.PHONY: all build run test clean deps
+.PHONY: all build run test clean deps install
 
 all: build
 
 ## build: compile the application
-build: deps
-	go build -o $(BIN) $(CMD)
+build:
+	go build $(LDFLAGS) -o $(BIN) $(CMD)
 
-## run: build and run the application
-run: build
-	$(BIN)
+## run: run without building a binary
+run:
+	go run $(LDFLAGS) $(CMD)
+
+## install: build and install to /usr/local/bin
+install: build
+	install -m 755 $(BIN) /usr/local/bin/$(APP)
 
 ## test: run all tests
 test:
