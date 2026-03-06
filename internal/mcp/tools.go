@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/Jared-Boschmann/skwad-linux/internal/git"
 	"github.com/Jared-Boschmann/skwad-linux/internal/models"
 )
 
@@ -227,8 +228,13 @@ func (h *toolHandler) listWorktrees(args map[string]interface{}) (ToolResult, er
 	if repoPath == "" {
 		return errorResult("repoPath is required"), nil
 	}
-	// TODO: delegate to git.WorktreeManager
-	return textResult(fmt.Sprintf(`{"repoPath":%q,"worktrees":[]}`, repoPath)), nil
+	wm := git.NewWorktreeManager(repoPath)
+	trees, err := wm.List()
+	if err != nil {
+		return errorResult(fmt.Sprintf("git worktree list: %v", err)), nil
+	}
+	data, _ := json.Marshal(trees)
+	return textResult(string(data)), nil
 }
 
 func (h *toolHandler) createAgent(args map[string]interface{}, sess *session) (ToolResult, error) {
@@ -267,8 +273,19 @@ func (h *toolHandler) closeAgent(args map[string]interface{}, sess *session) (To
 }
 
 func (h *toolHandler) createWorktree(args map[string]interface{}) (ToolResult, error) {
-	// TODO: delegate to git.WorktreeManager
-	return textResult("Worktree created"), nil
+	repoPath := strArg(args, "repoPath")
+	branchName := strArg(args, "branchName")
+	destPath := strArg(args, "destPath")
+	if repoPath == "" || branchName == "" || destPath == "" {
+		return errorResult("repoPath, branchName, and destPath are required"), nil
+	}
+	wm := git.NewWorktreeManager(repoPath)
+	if err := wm.Create(branchName, destPath); err != nil {
+		return errorResult(fmt.Sprintf("git worktree add: %v", err)), nil
+	}
+	result := map[string]string{"path": destPath, "branch": branchName}
+	data, _ := json.Marshal(result)
+	return textResult(string(data)), nil
 }
 
 func (h *toolHandler) displayMarkdown(args map[string]interface{}, sess *session) (ToolResult, error) {
